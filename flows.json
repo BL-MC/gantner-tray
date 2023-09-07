@@ -151,35 +151,6 @@
         "parallelUnitIdsAllowed": false
     },
     {
-        "id": "76465bf5aba36e59",
-        "type": "modbus-client",
-        "name": "Mythical Slave",
-        "clienttype": "tcp",
-        "bufferCommands": true,
-        "stateLogEnabled": false,
-        "queueLogEnabled": false,
-        "failureLogEnabled": true,
-        "tcpHost": "127.0.0.1",
-        "tcpPort": "10502",
-        "tcpType": "DEFAULT",
-        "serialPort": "/dev/ttyUSB",
-        "serialType": "RTU-BUFFERD",
-        "serialBaudrate": "9600",
-        "serialDatabits": "8",
-        "serialStopbits": "1",
-        "serialParity": "none",
-        "serialConnectionDelay": "100",
-        "serialAsciiResponseStartDelimiter": "0x3A",
-        "unit_id": "1",
-        "commandDelay": "1",
-        "clientTimeout": "1000",
-        "reconnectOnTimeout": true,
-        "reconnectTimeout": "2000",
-        "parallelUnitIdsAllowed": true,
-        "showWarnings": true,
-        "showLogs": true
-    },
-    {
         "id": "30f384ea.cf21fc",
         "type": "function",
         "z": "281e0a510310e9c6",
@@ -589,7 +560,7 @@
         "type": "function",
         "z": "281e0a510310e9c6",
         "name": "Create Setting",
-        "func": "let modBusSettingMsg = null;\nlet normalSettingMsg = null;\nlet trayControlMessage = null;\nlet tray = flow.get('tray');\nif (tray == null) return [modBusSettingMsg,normalSettingMsg,trayControlMessage];\nlet modbusSettingCubes = flow.get('modbusSettingCubes');\nlet icube = modbusSettingCubes.indexOf(msg.payload.cube);\n\nif (icube >= 0)\n{\n    if (tray[modbusSettingCubes[icube]].modbus.type == \"holding\") \n    {\n        let newVal = msg.payload.value;\n        newVal = Math.round(newVal * tray[modbusSettingCubes[icube]].modbus.res);\n        if (tray[modbusSettingCubes[icube]].modbus.signed) {\n            if (newVal > 32767) newVal = 32767;\n            if (newVal < -32767) newVal = -32767;\n            if (newVal < 0) newVal = newVal + 65536;\n        }\n        if (newVal < 0) newVal = 0;\n        if (newVal >= 65536) newVal = 65535;\n        modBusSettingMsg = { topic: modbusSettingCubes[icube], payload:{ value: newVal, 'fc': 0x6, 'unitid': 1, 'address': tray[modbusSettingCubes[icube]].modbus.address, 'quantity': 1 }};\n    }\n    if (tray[modbusSettingCubes[icube]].modbus.type == \"coil\") \n    {\n        let newVal = msg.payload.value;\n        modBusSettingMsg = { topic: modbusSettingCubes[icube], payload:{ value: newVal, 'fc': 0x5, 'unitid': 1, 'address': tray[modbusSettingCubes[icube]].modbus.address, 'quantity': 1 }};\n    }\n    if (modBusSettingMsg != null) flow.set('settingInProgress', true);\n    return [modBusSettingMsg,normalSettingMsg,trayControlMessage];\n}\n\nswitch (msg.payload.cube) \n{\n    case 'alias':\n        tray.alias.value = msg.payload.value;\n        normalSettingMsg = { topic: 'newData', payload: true };\n       break;\n    case 'trayControl':\n        switch(msg.payload.value)\n        {\n            case 0:\n                tray.trayControl.value = 0;\n                break;\n            case 1:\n                tray.trayControl.value = -1;\n                break;\n            case 2:\n                if (tray.trayControl.value > 0)\n                {\n                    tray.trayControl.value = 2;\n                    let trayProps  = flow.get('trayProps');\n                    node.warn(\"Asking for tray from database\");\n                    trayControlMessage =\n                    {\n                        topic: trayProps.box + '/tray/' + trayProps.type + '/' + trayProps.name + '/echo',\n                        payload: JSON.stringify({ topic: trayProps.box + '/tray/' + trayProps.type + '/' + trayProps.name + '/setting/echo' })\n                    };\n                }\n                break;\n            default:\n                tray.trayControl.value = 0;\n                break;\n        }\n        normalSettingMsg = { topic: 'newData', payload: true };\n       break;\n    default:\n        break;\n}\nflow.set('settingInProgress', false);\nreturn [modBusSettingMsg,normalSettingMsg,trayControlMessage];\n",
+        "func": "let modBusSettingMsg = null;\nlet normalSettingMsg = null;\nlet trayControlMessage = null;\nlet tray = flow.get('tray');\nif (tray == null) return [modBusSettingMsg,normalSettingMsg,trayControlMessage];\nlet modbusSettingCubes = flow.get('modbusSettingCubes');\nlet icube = modbusSettingCubes.indexOf(msg.payload.cube);\n\n/*\nif (icube >= 0)\n{\n    if (tray[modbusSettingCubes[icube]].modbus.type == \"holding\") \n    {\n        let newVal = msg.payload.value;\n        newVal = Math.round(newVal * tray[modbusSettingCubes[icube]].modbus.res);\n        if (tray[modbusSettingCubes[icube]].modbus.signed) {\n            if (newVal > 32767) newVal = 32767;\n            if (newVal < -32767) newVal = -32767;\n            if (newVal < 0) newVal = newVal + 65536;\n        }\n        if (newVal < 0) newVal = 0;\n        if (newVal >= 65536) newVal = 65535;\n        modBusSettingMsg = { topic: modbusSettingCubes[icube], payload:{ value: newVal, 'fc': 0x6, 'unitid': 1, 'address': tray[modbusSettingCubes[icube]].modbus.address, 'quantity': 1 }};\n    }\n    if (tray[modbusSettingCubes[icube]].modbus.type == \"coil\") \n    {\n        let newVal = msg.payload.value;\n        modBusSettingMsg = { topic: modbusSettingCubes[icube], payload:{ value: newVal, 'fc': 0x5, 'unitid': 1, 'address': tray[modbusSettingCubes[icube]].modbus.address, 'quantity': 1 }};\n    }\n    if (modBusSettingMsg != null) flow.set('settingInProgress', true);\n    return [modBusSettingMsg,normalSettingMsg,trayControlMessage];\n}\n*/\nswitch (msg.payload.cube) \n{\n    case 'alias':\n        tray.alias.value = msg.payload.value;\n        normalSettingMsg = { topic: 'newData', payload: true };\n       break;\n    case 'trayControl':\n        switch(msg.payload.value)\n        {\n            case 0:\n                tray.trayControl.value = 0;\n                break;\n            case 1:\n                tray.trayControl.value = -1;\n                break;\n            case 2:\n                if (tray.trayControl.value > 0)\n                {\n                    tray.trayControl.value = 2;\n                    let trayProps  = flow.get('trayProps');\n                    node.warn(\"Asking for tray from database\");\n                    trayControlMessage =\n                    {\n                        topic: trayProps.box + '/tray/' + trayProps.type + '/' + trayProps.name + '/echo',\n                        payload: JSON.stringify({ topic: trayProps.box + '/tray/' + trayProps.type + '/' + trayProps.name + '/setting/echo' })\n                    };\n                }\n                break;\n            default:\n                tray.trayControl.value = 0;\n                break;\n        }\n        normalSettingMsg = { topic: 'newData', payload: true };\n       break;\n    default:\n        break;\n}\nflow.set('settingInProgress', false);\nreturn [modBusSettingMsg,normalSettingMsg,trayControlMessage];\n",
         "outputs": 3,
         "noerr": 0,
         "initialize": "",
@@ -669,8 +640,8 @@
         "keepMsgProperties": false,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1390,
-        "y": 200,
+        "x": 1370,
+        "y": 220,
         "wires": [
             [],
             [
@@ -699,7 +670,7 @@
         "y": 220,
         "wires": [
             [
-                "b0b31c3d8d2d0598"
+                "4402bc5ad5b005a3"
             ]
         ]
     },
@@ -770,7 +741,7 @@
         "type": "function",
         "z": "281e0a510310e9c6",
         "name": "Setup read Modbus",
-        "func": "if (flow.get('settingInProgress')) return null;\nlet tray = flow.get('tray');\nif (tray == null) return null;\nlet modbusCubes = flow.get('modbusCubes');\nlet modbusMsg = {};\nfor (let icube in modbusCubes) \n{\n    if (tray[modbusCubes[icube]].modbus.type == \"holding\") \n    {\n        modbusMsg[modbusCubes[icube]] = { 'fc': 0x3, 'unitid': 1, 'address': tray[modbusCubes[icube]].modbus.address, 'quantity': 1 };\n    }\n    if (tray[modbusCubes[icube]].modbus.type == \"coil\") \n    {\n        modbusMsg[modbusCubes[icube]] = { 'fc': 0x1, 'unitid': 1, 'address': tray[modbusCubes[icube]].modbus.address, 'quantity': 1 };\n    }\n}\nreturn {topic: \"test\", payload:modbusMsg};",
+        "func": "if (flow.get('settingInProgress')) return null;\nlet tray = flow.get('tray');\nif (tray == null) return null;\nlet modbusCubes = flow.get('modbusCubes');\nlet modbusMsg = {};\nfor (let icube in modbusCubes) \n{\n    if (tray[modbusCubes[icube]].modbus.type == \"holding\") \n    {\n        let datLen = 0;\n        if (tray[modbusCubes[icube]].modbus.format == \"float\") datLen = 2;\n        if (datLen > 0) modbusMsg[modbusCubes[icube]] = { 'fc': 0x3, 'unitid': 1, 'address': tray[modbusCubes[icube]].modbus.address, 'quantity': datLen };\n    }\n}\nreturn {topic: \"test\", payload:modbusMsg};",
         "outputs": 1,
         "noerr": 0,
         "initialize": "",
@@ -802,40 +773,11 @@
         "delayOnStart": false,
         "startDelayTime": "",
         "x": 780,
-        "y": 620,
+        "y": 660,
         "wires": [
             [],
             [
                 "65d1f50db1b29078"
-            ]
-        ]
-    },
-    {
-        "id": "dc484bfd8579f263",
-        "type": "inject",
-        "z": "281e0a510310e9c6",
-        "name": "Test Setting 0",
-        "props": [
-            {
-                "p": "payload"
-            },
-            {
-                "p": "topic",
-                "vt": "str"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "setting",
-        "payload": "{\"cube\":\"cube05\",\"value\":0}",
-        "payloadType": "json",
-        "x": 490,
-        "y": 280,
-        "wires": [
-            [
-                "f9be9054ce456982"
             ]
         ]
     },
@@ -854,7 +796,7 @@
         "y": 660,
         "wires": [
             [
-                "90090457f00968ce"
+                "5d5f47a0eaae7c42"
             ]
         ]
     },
@@ -863,7 +805,7 @@
         "type": "function",
         "z": "281e0a510310e9c6",
         "name": "Parse Reading",
-        "func": "flow.set('settingInProgress',false);\nlet tray = flow.get('tray');\nif (tray == null) return null;\nif (tray[msg.topic].modbus.type == \"holding\") \n{\n    let newVal = msg.payload.data[0];\n    if (tray[msg.topic].modbus.signed) \n    {\n        if (newVal > 32767) newVal = newVal - 65536;\n    }\n    newVal = newVal / tray[msg.topic].modbus.res;\n    tray[msg.topic].value = newVal;\n}\nif (tray[msg.topic].modbus.type == \"coil\") \n{\n    if (msg.payload.data[0])\n    {\n        tray[msg.topic].value = 1;\n    }\n    else\n    {\n        tray[msg.topic].value = 0;\n    }\n}\nlet modbusCubes = flow.get('modbusCubes');\nlet icube = modbusCubes.indexOf(msg.topic);\nif (icube == (modbusCubes.length - 1)) return { topic: 'readingDone', payload: true }\nreturn null;\n",
+        "func": "flow.set('settingInProgress',false);\nlet tray = flow.get('tray');\nif (tray == null) return null;\nif (tray[msg.topic].modbus.type == \"holding\") \n{\n    let newVal = 0;\n    switch (tray[msg.topic].modbus.format)\n    {\n        case  'usint16':\n            newVal = msg.payload.data[0];\n            newVal = newVal / tray[msg.topic].modbus.res;\n            tray[msg.topic].value = newVal;\n            break;\n        case 'sint16':\n            newVal = msg.payload.data[0];\n            if (newVal > 32767) newVal = newVal - 65536;\n            newVal = newVal / tray[msg.topic].modbus.res;\n            tray[msg.topic].value = newVal;\n            break;\n        case 'float':\n            let dataView  = new DataView(new ArrayBuffer(4));\n            for (let ib = 0; ib < 4; ++ib)   dataView.setUint8(ib, msg.payload.buffer[ib]);\n            tray[msg.topic].value = Math.round(tray[msg.topic].modbus.res * dataView.getFloat32(0)) / tray[msg.topic].modbus.res;\n            break;\n    }\n}\nlet modbusCubes = flow.get('modbusCubes');\nlet icube = modbusCubes.indexOf(msg.topic);\nif (icube == (modbusCubes.length - 1)) return { topic: 'readingDone', payload: true }\nreturn null;\n",
         "outputs": 1,
         "noerr": 0,
         "initialize": "",
@@ -875,26 +817,6 @@
             [
                 "99fbe8135d0ce161"
             ]
-        ]
-    },
-    {
-        "id": "303fe6a9c57e9d67",
-        "type": "modbus-flex-write",
-        "z": "281e0a510310e9c6",
-        "name": "Set Mythical Modbus",
-        "showStatusActivities": false,
-        "showErrors": false,
-        "showWarnings": true,
-        "server": "76465bf5aba36e59",
-        "emptyMsgOnFail": false,
-        "keepMsgProperties": false,
-        "delayOnStart": false,
-        "startDelayTime": "",
-        "x": 1280,
-        "y": 480,
-        "wires": [
-            [],
-            []
         ]
     },
     {
@@ -911,177 +833,7 @@
         "x": 1110,
         "y": 480,
         "wires": [
-            [
-                "303fe6a9c57e9d67"
-            ]
-        ]
-    },
-    {
-        "id": "c2c177727b94f9ba",
-        "type": "modbus-server",
-        "z": "281e0a510310e9c6",
-        "name": "Mythical Slave",
-        "logEnabled": false,
-        "hostname": "127.0.0.1",
-        "serverPort": 10502,
-        "responseDelay": 100,
-        "delayUnit": "ms",
-        "coilsBufferSize": "100",
-        "holdingBufferSize": "10",
-        "inputBufferSize": "100",
-        "discreteBufferSize": "100",
-        "showErrors": false,
-        "x": 1500,
-        "y": 480,
-        "wires": [
-            [],
-            [],
-            [],
-            [],
             []
-        ]
-    },
-    {
-        "id": "41d1859cfcd19658",
-        "type": "inject",
-        "z": "281e0a510310e9c6",
-        "name": "Test Setting 1",
-        "props": [
-            {
-                "p": "payload"
-            },
-            {
-                "p": "topic",
-                "vt": "str"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "setting",
-        "payload": "{\"cube\":\"cube05\",\"value\":1}",
-        "payloadType": "json",
-        "x": 490,
-        "y": 320,
-        "wires": [
-            [
-                "f9be9054ce456982"
-            ]
-        ]
-    },
-    {
-        "id": "90090457f00968ce",
-        "type": "switch",
-        "z": "281e0a510310e9c6",
-        "name": "",
-        "property": "testMode",
-        "propertyType": "flow",
-        "rules": [
-            {
-                "t": "eq",
-                "v": "0",
-                "vt": "num"
-            },
-            {
-                "t": "eq",
-                "v": "1",
-                "vt": "num"
-            }
-        ],
-        "checkall": "true",
-        "repair": false,
-        "outputs": 2,
-        "x": 630,
-        "y": 660,
-        "wires": [
-            [
-                "5d5f47a0eaae7c42"
-            ],
-            [
-                "9fa3c606049b206e"
-            ]
-        ]
-    },
-    {
-        "id": "9fa3c606049b206e",
-        "type": "modbus-flex-getter",
-        "z": "281e0a510310e9c6",
-        "name": "Read Modbus Test",
-        "showStatusActivities": true,
-        "showErrors": true,
-        "showWarnings": true,
-        "logIOActivities": false,
-        "server": "76465bf5aba36e59",
-        "useIOFile": false,
-        "ioFile": "",
-        "useIOForPayload": false,
-        "emptyMsgOnFail": false,
-        "keepMsgProperties": false,
-        "delayOnStart": false,
-        "startDelayTime": "",
-        "x": 790,
-        "y": 700,
-        "wires": [
-            [],
-            [
-                "65d1f50db1b29078"
-            ]
-        ]
-    },
-    {
-        "id": "b0b31c3d8d2d0598",
-        "type": "switch",
-        "z": "281e0a510310e9c6",
-        "name": "",
-        "property": "testMode",
-        "propertyType": "flow",
-        "rules": [
-            {
-                "t": "eq",
-                "v": "0",
-                "vt": "num"
-            },
-            {
-                "t": "eq",
-                "v": "1",
-                "vt": "num"
-            }
-        ],
-        "checkall": "true",
-        "repair": false,
-        "outputs": 2,
-        "x": 1230,
-        "y": 220,
-        "wires": [
-            [
-                "4402bc5ad5b005a3"
-            ],
-            [
-                "9c75d78c38aa16cb"
-            ]
-        ]
-    },
-    {
-        "id": "9c75d78c38aa16cb",
-        "type": "modbus-flex-write",
-        "z": "281e0a510310e9c6",
-        "name": "Set Modbus Test",
-        "showStatusActivities": false,
-        "showErrors": false,
-        "showWarnings": true,
-        "server": "76465bf5aba36e59",
-        "emptyMsgOnFail": false,
-        "keepMsgProperties": false,
-        "delayOnStart": false,
-        "startDelayTime": "",
-        "x": 1410,
-        "y": 260,
-        "wires": [
-            [],
-            [
-                "3f594171d5aa07ab"
-            ]
         ]
     },
     {

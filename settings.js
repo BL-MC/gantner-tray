@@ -247,10 +247,10 @@ module.exports = {
          */
         tours: false,
         page: {
-            title: "blinky-modbus-tray"
+            title: "gantner-iter-tray"
         },
         header: {
-            title: "blinky-modbus-tray"
+            title: "gantner-iter-tray"
          },
     
 
