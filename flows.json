@@ -786,7 +786,7 @@
         "type": "function",
         "z": "281e0a510310e9c6",
         "name": "Parse Reading",
-        "func": "flow.set('settingInProgress',false);\nlet tray = flow.get('tray');\nif (tray == null) return null;\nlet dataView  = new DataView(new ArrayBuffer(4));\nfor (let ib = 0; ib < 4; ++ib)   dataView.setUint8(ib, msg.payload.buffer[ib]);\nswitch (tray[msg.topic].modbus.format)\n{\n    case 'int32':\n        tray[msg.topic].value = dataView.getInt32(0);\n        break;\n    case 'float32':\n        tray[msg.topic].value = dataView.getFloat32(0);\n        break;\n    default:\n        break;\n}\nlet modbusCubes = flow.get('modbusCubes');\nlet icube = modbusCubes.indexOf(msg.topic);\nif (icube == (modbusCubes.length - 1)) return { topic: 'readingDone', payload: true }\nreturn null;\n",
+        "func": "flow.set('settingInProgress',false);\nlet tray = flow.get('tray');\nif (tray == null) return null;\nlet dataView  = new DataView(new ArrayBuffer(4));\nfor (let ib = 0; ib < 4; ++ib)   dataView.setUint8(ib, msg.payload.buffer[ib]);\nswitch (tray[msg.topic].modbus.format)\n{\n    case 'int32':\n        tray[msg.topic].value = dataView.getInt32(0);\n        break;\n    case 'float32':\n        tray[msg.topic].value = dataView.getFloat32(0);\n        break;\n    default:\n        break;\n}\nlet modbusCubes = flow.get('modbusCubes');\nlet icube = modbusCubes.indexOf(msg.topic);\nif (icube == (modbusCubes.length - 1))\n{\n    tray.timeStamp = new  Date().getTime();\n    return { topic: 'readingDone', payload: true };\n}\nreturn null;\n",
         "outputs": 1,
         "noerr": 0,
         "initialize": "",
