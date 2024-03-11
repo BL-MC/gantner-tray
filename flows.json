@@ -131,7 +131,7 @@
         "bufferCommands": true,
         "stateLogEnabled": false,
         "queueLogEnabled": false,
-        "failureLogEnabled": false,
+        "failureLogEnabled": true,
         "tcpHost": "$(MODBUSIP)",
         "tcpPort": "$(MODBUSPORT)",
         "tcpType": "DEFAULT",
@@ -144,8 +144,8 @@
         "serialConnectionDelay": "100",
         "serialAsciiResponseStartDelimiter": "",
         "unit_id": "1",
-        "commandDelay": "1",
-        "clientTimeout": "1000",
+        "commandDelay": "5",
+        "clientTimeout": "1500",
         "reconnectOnTimeout": true,
         "reconnectTimeout": "2000",
         "parallelUnitIdsAllowed": false
@@ -560,7 +560,7 @@
         "type": "function",
         "z": "281e0a510310e9c6",
         "name": "Create Setting",
-        "func": "let modBusSettingMsg = null;\nlet normalSettingMsg = null;\nlet trayControlMessage = null;\nlet tray = flow.get('tray');\nif (tray == null) return [modBusSettingMsg,normalSettingMsg,trayControlMessage];\nlet modbusSettingCubes = flow.get('modbusSettingCubes');\nlet icube = modbusSettingCubes.indexOf(msg.payload.cube);\n\n/*\nif (icube >= 0)\n{\n    if (tray[modbusSettingCubes[icube]].modbus.type == \"holding\") \n    {\n        let newVal = msg.payload.value;\n        newVal = Math.round(newVal * tray[modbusSettingCubes[icube]].modbus.res);\n        if (tray[modbusSettingCubes[icube]].modbus.signed) {\n            if (newVal > 32767) newVal = 32767;\n            if (newVal < -32767) newVal = -32767;\n            if (newVal < 0) newVal = newVal + 65536;\n        }\n        if (newVal < 0) newVal = 0;\n        if (newVal >= 65536) newVal = 65535;\n        modBusSettingMsg = { topic: modbusSettingCubes[icube], payload:{ value: newVal, 'fc': 0x6, 'unitid': 1, 'address': tray[modbusSettingCubes[icube]].modbus.address, 'quantity': 1 }};\n    }\n    if (tray[modbusSettingCubes[icube]].modbus.type == \"coil\") \n    {\n        let newVal = msg.payload.value;\n        modBusSettingMsg = { topic: modbusSettingCubes[icube], payload:{ value: newVal, 'fc': 0x5, 'unitid': 1, 'address': tray[modbusSettingCubes[icube]].modbus.address, 'quantity': 1 }};\n    }\n    if (modBusSettingMsg != null) flow.set('settingInProgress', true);\n    return [modBusSettingMsg,normalSettingMsg,trayControlMessage];\n}\n*/\nswitch (msg.payload.cube) \n{\n    case 'alias':\n        tray.alias.value = msg.payload.value;\n        normalSettingMsg = { topic: 'newData', payload: true };\n       break;\n    case 'trayControl':\n        switch(msg.payload.value)\n        {\n            case 0:\n                tray.trayControl.value = 0;\n                break;\n            case 1:\n                tray.trayControl.value = -1;\n                break;\n            case 2:\n                if (tray.trayControl.value > 0)\n                {\n                    tray.trayControl.value = 2;\n                    let trayProps  = flow.get('trayProps');\n                    node.warn(\"Asking for tray from database\");\n                    trayControlMessage =\n                    {\n                        topic: trayProps.box + '/tray/' + trayProps.type + '/' + trayProps.name + '/echo',\n                        payload: JSON.stringify({ topic: trayProps.box + '/tray/' + trayProps.type + '/' + trayProps.name + '/setting/echo' })\n                    };\n                }\n                break;\n            default:\n                tray.trayControl.value = 0;\n                break;\n        }\n        normalSettingMsg = { topic: 'newData', payload: true };\n       break;\n    default:\n        break;\n}\nflow.set('settingInProgress', false);\nreturn [modBusSettingMsg,normalSettingMsg,trayControlMessage];\n",
+        "func": "let modBusSettingMsg = null;\nlet normalSettingMsg = null;\nlet trayControlMessage = null;\nlet tray = flow.get('tray');\nif (tray == null) return [modBusSettingMsg,normalSettingMsg,trayControlMessage];\nlet modbusSettingCubes = flow.get('modbusSettingCubes');\nlet icube = modbusSettingCubes.indexOf(msg.payload.cube);\n\nif (icube >= 0)\n{\n    let view = new DataView(new ArrayBuffer(4));\n    switch (tray[modbusSettingCubes[icube]].modbus.format)\n    {\n        case 'int32':\n            view.setInt32(0, msg.payload.value);\n            break;\n        case 'float32':\n            view.setFloat32(0, msg.payload.value);\n            break;\n        default:\n            break;\n    }\n/*\n    modBusSettingMsg = \n    {\n        topic: modbusSettingCubes[icube], \n        payload:[\n            { value: view.getUint16(0), 'fc': 0x6, 'unitid': 1, 'address': tray[modbusSettingCubes[icube]].modbus.address + 0, 'quantity': 1 },\n            { value: view.getUint16(2), 'fc': 0x6, 'unitid': 1, 'address': tray[modbusSettingCubes[icube]].modbus.address + 1, 'quantity': 1 }]\n    };\n*/\n    modBusSettingMsg = \n    {\n        topic: modbusSettingCubes[icube], \n        payload:{ value: [view.getUint16(0),view.getUint16(2)], 'fc': 0x10, 'unitid': 1, 'address': tray[modbusSettingCubes[icube]].modbus.address + 0, 'quantity': 2}\n    };\n    flow.set('settingInProgress', true);\n    return [modBusSettingMsg,normalSettingMsg,trayControlMessage];\n}\n\nswitch (msg.payload.cube) \n{\n    case 'alias':\n        tray.alias.value = msg.payload.value;\n        normalSettingMsg = { topic: 'newData', payload: true };\n       break;\n    case 'trayControl':\n        switch(msg.payload.value)\n        {\n            case 0:\n                tray.trayControl.value = 0;\n                break;\n            case 1:\n                tray.trayControl.value = -1;\n                break;\n            case 2:\n                if (tray.trayControl.value > 0)\n                {\n                    tray.trayControl.value = 2;\n                    let trayProps  = flow.get('trayProps');\n                    node.warn(\"Asking for tray from database\");\n                    trayControlMessage =\n                    {\n                        topic: trayProps.box + '/tray/' + trayProps.type + '/' + trayProps.name + '/echo',\n                        payload: JSON.stringify({ topic: trayProps.box + '/tray/' + trayProps.type + '/' + trayProps.name + '/setting/echo' })\n                    };\n                }\n                break;\n            default:\n                tray.trayControl.value = 0;\n                break;\n        }\n        normalSettingMsg = { topic: 'newData', payload: true };\n       break;\n    default:\n        break;\n}\nflow.set('settingInProgress', false);\nreturn [modBusSettingMsg,normalSettingMsg,trayControlMessage];\n",
         "outputs": 3,
         "noerr": 0,
         "initialize": "",
@@ -640,13 +640,11 @@
         "keepMsgProperties": false,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1370,
+        "x": 1270,
         "y": 220,
         "wires": [
             [],
-            [
-                "3f594171d5aa07ab"
-            ]
+            []
         ]
     },
     {
@@ -655,8 +653,8 @@
         "z": "281e0a510310e9c6",
         "name": "",
         "pauseType": "delay",
-        "timeout": "200",
-        "timeoutUnits": "milliseconds",
+        "timeout": "1",
+        "timeoutUnits": "seconds",
         "rate": "1",
         "nbRateUnits": "1",
         "rateUnits": "second",
@@ -666,11 +664,12 @@
         "drop": false,
         "allowrate": false,
         "outputs": 1,
-        "x": 1090,
+        "x": 1080,
         "y": 220,
         "wires": [
             [
-                "4402bc5ad5b005a3"
+                "4402bc5ad5b005a3",
+                "f71e663d93186bcf"
             ]
         ]
     },
@@ -678,33 +677,15 @@
         "id": "3f594171d5aa07ab",
         "type": "function",
         "z": "281e0a510310e9c6",
-        "name": "Check Modbus Setting",
-        "func": "flow.set('settingInProgress',false);\nlet tray = flow.get('tray');\nif (tray == null) return null;\nif (tray[msg.topic].modbus.type == \"holding\") \n{\n    let newVal = msg.payload.value;\n    if (tray[msg.topic].modbus.signed) \n    {\n        if (newVal > 32767) newVal = newVal - 65536;\n    }\n    newVal = newVal / tray[msg.topic].modbus.res;\n    tray[msg.topic].value = newVal;\n    return { topic: 'newData', payload: true };\n}\nif (tray[msg.topic].modbus.type == \"coil\") \n{\n    if (msg.payload.state)\n    {\n        tray[msg.topic].value = 1;\n    }\n    else\n    {\n        tray[msg.topic].value = 0;\n    }\n    return { topic: 'newData', payload: true };\n}\nreturn { topic: 'newData', payload: false }\n",
-        "outputs": 1,
+        "name": "settingInProgress = false",
+        "func": "flow.set('settingInProgress',false);\nreturn null;\n",
+        "outputs": 0,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1640,
-        "y": 220,
-        "wires": [
-            [
-                "184fe4c567bcfc8d"
-            ]
-        ]
-    },
-    {
-        "id": "184fe4c567bcfc8d",
-        "type": "link out",
-        "z": "281e0a510310e9c6",
-        "name": "Check Modbus Setting out",
-        "mode": "link",
-        "links": [
-            "45a97566b65c65cc",
-            "04d132d87ffeb91a"
-        ],
-        "x": 1825,
-        "y": 220,
+        "x": 1470,
+        "y": 160,
         "wires": []
     },
     {
@@ -721,7 +702,7 @@
                 "vt": "str"
             }
         ],
-        "repeat": "2",
+        "repeat": "$(INTERVAL)",
         "crontab": "",
         "once": true,
         "onceDelay": "8",
@@ -741,7 +722,7 @@
         "type": "function",
         "z": "281e0a510310e9c6",
         "name": "Setup read Modbus",
-        "func": "if (flow.get('settingInProgress')) return null;\nlet tray = flow.get('tray');\nif (tray == null) return null;\nlet modbusCubes = flow.get('modbusCubes');\nlet modbusMsg = {};\nfor (let icube in modbusCubes) \n{\n    if (tray[modbusCubes[icube]].modbus.type == \"holding\") \n    {\n        let datLen = 0;\n        if (tray[modbusCubes[icube]].modbus.format == \"float\") datLen = 2;\n        if (datLen > 0) modbusMsg[modbusCubes[icube]] = { 'fc': 0x3, 'unitid': 1, 'address': tray[modbusCubes[icube]].modbus.address, 'quantity': datLen };\n    }\n}\nreturn {topic: \"test\", payload:modbusMsg};",
+        "func": "if (flow.get('settingInProgress')) return null;\nlet tray = flow.get('tray');\nif (tray == null) return null;\nlet modbusCubes = flow.get('modbusCubes');\nlet modbusMsg = {};\nfor (let icube in modbusCubes) \n{\n        let datLen = 2;\n        modbusMsg[modbusCubes[icube]] = { 'fc': 0x3, 'unitid': 1, 'address': tray[modbusCubes[icube]].modbus.address, 'quantity': datLen };\n}\nreturn {topic: \"test\", payload:modbusMsg};",
         "outputs": 1,
         "noerr": 0,
         "initialize": "",
@@ -768,7 +749,7 @@
         "useIOFile": false,
         "ioFile": "",
         "useIOForPayload": false,
-        "emptyMsgOnFail": false,
+        "emptyMsgOnFail": true,
         "keepMsgProperties": false,
         "delayOnStart": false,
         "startDelayTime": "",
@@ -805,7 +786,7 @@
         "type": "function",
         "z": "281e0a510310e9c6",
         "name": "Parse Reading",
-        "func": "flow.set('settingInProgress',false);\nlet tray = flow.get('tray');\nif (tray == null) return null;\nif (tray[msg.topic].modbus.type == \"holding\") \n{\n    let newVal = 0;\n    switch (tray[msg.topic].modbus.format)\n    {\n        case  'usint16':\n            newVal = msg.payload.data[0];\n            newVal = newVal / tray[msg.topic].modbus.res;\n            tray[msg.topic].value = newVal;\n            break;\n        case 'sint16':\n            newVal = msg.payload.data[0];\n            if (newVal > 32767) newVal = newVal - 65536;\n            newVal = newVal / tray[msg.topic].modbus.res;\n            tray[msg.topic].value = newVal;\n            break;\n        case 'float':\n            let dataView  = new DataView(new ArrayBuffer(4));\n            for (let ib = 0; ib < 4; ++ib)   dataView.setUint8(ib, msg.payload.buffer[ib]);\n            tray[msg.topic].value = Math.round(tray[msg.topic].modbus.res * dataView.getFloat32(0)) / tray[msg.topic].modbus.res;\n            break;\n    }\n}\nlet modbusCubes = flow.get('modbusCubes');\nlet icube = modbusCubes.indexOf(msg.topic);\nif (icube == (modbusCubes.length - 1)) return { topic: 'readingDone', payload: true }\nreturn null;\n",
+        "func": "flow.set('settingInProgress',false);\nlet tray = flow.get('tray');\nif (tray == null) return null;\nlet dataView  = new DataView(new ArrayBuffer(4));\nfor (let ib = 0; ib < 4; ++ib)   dataView.setUint8(ib, msg.payload.buffer[ib]);\nswitch (tray[msg.topic].modbus.format)\n{\n    case 'int32':\n        tray[msg.topic].value = dataView.getInt32(0);\n        break;\n    case 'float32':\n        tray[msg.topic].value = dataView.getFloat32(0);\n        break;\n    default:\n        break;\n}\nlet modbusCubes = flow.get('modbusCubes');\nlet icube = modbusCubes.indexOf(msg.topic);\nif (icube == (modbusCubes.length - 1)) return { topic: 'readingDone', payload: true }\nreturn null;\n",
         "outputs": 1,
         "noerr": 0,
         "initialize": "",
@@ -1059,6 +1040,31 @@
         "wires": [
             [
                 "5023092b.a0fe38"
+            ]
+        ]
+    },
+    {
+        "id": "f71e663d93186bcf",
+        "type": "delay",
+        "z": "281e0a510310e9c6",
+        "name": "",
+        "pauseType": "delay",
+        "timeout": "1",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 1260,
+        "y": 160,
+        "wires": [
+            [
+                "3f594171d5aa07ab"
             ]
         ]
     }
