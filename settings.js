@@ -247,10 +247,10 @@ module.exports = {
          */
         tours: false,
         page: {
-            title: "gantner-iter-tray"
+            title: "gantner-tray"
         },
         header: {
-            title: "gantner-iter-tray"
+            title: "gantner-tray"
          },
     
 
