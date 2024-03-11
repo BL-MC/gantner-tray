@@ -1,2 +1,2 @@
-# gantner-iter-tray
+# gantner-tray
 
